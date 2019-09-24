@@ -14,19 +14,19 @@ import (
 )
 
 func DownLoadTemplate(url string, path string) {
-	log.Printf("规则模版地址: %s", url)
-	log.Println("开始下载神机规则模版")
+	log.Printf("Rule template URL: %s", url)
+	log.Println("Start downloading the rules template")
 	resp, err := http.Get(url)
 	if nil != err {
-		log.Fatalf("规则模版下载失败,请手动下载保存为[%s]\n", path)
+		log.Fatalf("Rule template download failed, please manually download save as [%s]\n", path)
 	}
 	defer resp.Body.Close()
 	s, err := ioutil.ReadAll(resp.Body)
 	if nil != err || resp.StatusCode != http.StatusOK {
-		log.Fatalf("规则模版下载失败,请手动下载保存为[%s]\n", path)
+		log.Fatalf("Rule template download failed, please manually download save as [%s]\n", path)
 	}
 	ioutil.WriteFile(path, s, 0777)
-	log.Printf("神机规则模版下载完成 [%s]\n", path)
+	log.Printf("Rules template download complete. [%s]\n", path)
 }
 func main() {
 
