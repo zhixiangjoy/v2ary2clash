@@ -16,17 +16,17 @@ import (
 )
 
 type Vmess struct {
-	Add  string `json:"add"`
-	Aid  int    `json:"aid"`
-	Host string `json:"host"`
-	ID   string `json:"id"`
-	Net  string `json:"net"`
-	Path string `json:"path"`
-	Port string `json:"port"`
-	PS   string `json:"ps"`
-	TLS  string `json:"tls"`
-	Type string `json:"type"`
-	V    string `json:"v"`
+	Add  string      `json:"add"`
+	Aid  int         `json:"aid"`
+	Host string      `json:"host"`
+	ID   string      `json:"id"`
+	Net  string      `json:"net"`
+	Path string      `json:"path"`
+	Port interface{} `json:"port"`
+	PS   string      `json:"ps"`
+	TLS  string      `json:"tls"`
+	Type string      `json:"type"`
+	V    string      `json:"v"`
 }
 
 type Clash struct {
@@ -69,11 +69,26 @@ func (this *Clash) LoadTemplate(path string, vmesss []Vmess) []byte {
 	var proxys []map[string]interface{}
 	var proxies []string
 	for _, c := range vmesss {
+
 		proxy := make(map[string]interface{})
+		switch c.Port.(type) {
+		case string:
+			proxy["port"], _ = c.Port.(string)
+		case int:
+			proxy["port"], _ = c.Port.(int)
+		case float64:
+			proxy["port"], _ = c.Port.(float64)
+		default:
+			continue
+		}
+		if "" != c.Net {
+			proxy["network"] = c.Net
+			proxy["ws-path"] = "/v2ray.cool/"
+		}
 		proxy["name"] = c.PS
 		proxy["type"] = "vmess"
 		proxy["server"] = c.Add
-		proxy["port"] = c.Port
+
 		proxy["uuid"] = c.ID
 		proxy["alterId"] = c.Aid
 		proxy["cipher"] = "auto"
@@ -150,6 +165,9 @@ func V2ray2Clash(c *gin.Context) {
 	scanner := bufio.NewScanner(strings.NewReader(string(decodeBody)))
 	var vmesss []Vmess
 	for scanner.Scan() {
+		if !strings.HasPrefix(scanner.Text(), "vmess://") {
+			continue
+		}
 		s := scanner.Text()[8:]
 		s = strings.Trim(s, `\n`)
 		vmconfig, err := base64.RawStdEncoding.DecodeString(s)
