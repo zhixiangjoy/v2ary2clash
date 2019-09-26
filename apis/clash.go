@@ -81,7 +81,8 @@ func (this *Clash) LoadTemplate(path string, vmesss []Vmess) []byte {
 		default:
 			continue
 		}
-		if "" != c.Net {
+
+		if "ws" == c.Net {
 			proxy["network"] = c.Net
 			proxy["ws-path"] = "/v2ray.cool/"
 		}
