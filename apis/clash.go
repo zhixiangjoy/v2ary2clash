@@ -29,6 +29,21 @@ type Vmess struct {
 	V    string      `json:"v"`
 }
 
+type ClashVmess struct {
+	Name           string      `json:"name,omitempty"`
+	Type           string      `json:"type,omitempty"`
+	Server         string      `json:"server,omitempty"`
+	Port           interface{} `json:"port,omitempty"`
+	UUID           string      `json:"uuid,omitempty"`
+	AlterID        int         `json:"alterId,omitempty"`
+	Cipher         string      `json:"cipher,omitempty"`
+	TLS            bool        `json:"tls,omitempty"`
+	Network        string      `json:"network,omitempty"`
+	WSPATH         string      `json:"ws-path,omitempty"`
+	WSHeaders      interface{} `json:"-"`
+	SkipCertVerify bool        `json:"-"`
+}
+
 type Clash struct {
 	Port      int `yaml:"port"`
 	SocksPort int `yaml:"socks-port"`
@@ -69,36 +84,35 @@ func (this *Clash) LoadTemplate(path string, vmesss []Vmess) []byte {
 	var proxys []map[string]interface{}
 	var proxies []string
 	for _, c := range vmesss {
-
-		proxy := make(map[string]interface{})
+		clashVmess := ClashVmess{}
+		clashVmess.Name = c.PS
+		clashVmess.Type = "vmess"
+		clashVmess.Server = c.Add
 		switch c.Port.(type) {
 		case string:
-			proxy["port"], _ = c.Port.(string)
+			clashVmess.Port, _ = c.Port.(string)
 		case int:
-			proxy["port"], _ = c.Port.(int)
+			clashVmess.Port, _ = c.Port.(int)
 		case float64:
-			proxy["port"], _ = c.Port.(float64)
+			clashVmess.Port, _ = c.Port.(float64)
 		default:
 			continue
 		}
-
-		if "ws" == c.Net {
-			proxy["network"] = c.Net
-			proxy["ws-path"] = c.Path
-		}
-		proxy["name"] = c.PS
-		proxy["type"] = "vmess"
-		proxy["server"] = c.Add
-
-		proxy["uuid"] = c.ID
-		proxy["alterId"] = c.Aid
-		proxy["cipher"] = "auto"
+		clashVmess.UUID = c.ID
+		clashVmess.AlterID = c.Aid
+		clashVmess.Cipher = "auto"
 		if "" != c.TLS {
-			proxy["tls"] = true
+			clashVmess.TLS = true
 		} else {
-			proxy["tls"] = false
-
+			clashVmess.TLS = false
 		}
+		if "ws" == c.Net {
+			clashVmess.Network = c.Net
+			clashVmess.WSPATH = c.Path
+		}
+		proxy := make(map[string]interface{})
+		j, _ := json.Marshal(clashVmess)
+		json.Unmarshal(j, &proxy)
 		proxys = append(proxys, proxy)
 		this.Proxy = append(this.Proxy, proxy)
 		proxies = append(proxies, c.PS)
@@ -149,7 +163,7 @@ func V2ray2Clash(c *gin.Context) {
 	sublink := c.DefaultQuery("sub_link", "")
 
 	if !strings.HasPrefix(sublink, "http") {
-		c.String(http.StatusBadRequest, "参数错误.")
+		c.String(http.StatusBadRequest, "sub_link=需要v2ray的订阅链接.")
 		return
 	}
 	resp, err := http.Get(sublink)
