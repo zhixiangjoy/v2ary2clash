@@ -84,7 +84,7 @@ func (this *Clash) LoadTemplate(path string, vmesss []Vmess) []byte {
 
 		if "ws" == c.Net {
 			proxy["network"] = c.Net
-			proxy["ws-path"] = "/v2ray.cool/"
+			proxy["ws-path"] = c.Path
 		}
 		proxy["name"] = c.PS
 		proxy["type"] = "vmess"
@@ -137,6 +137,13 @@ func (this *Clash) LoadTemplate(path string, vmesss []Vmess) []byte {
 
 	return d
 }
+func Base64DecodeStripped(s string) ([]byte, error) {
+	if i := len(s) % 4; i != 0 {
+		s += strings.Repeat("=", 4-i)
+	}
+	decoded, err := base64.StdEncoding.DecodeString(s)
+	return decoded, err
+}
 
 func V2ray2Clash(c *gin.Context) {
 	sublink := c.DefaultQuery("sub_link", "")
@@ -157,7 +164,7 @@ func V2ray2Clash(c *gin.Context) {
 		c.String(http.StatusBadRequest, "sublink 不能访问")
 		return
 	}
-	decodeBody, err := base64.RawStdEncoding.DecodeString(string(s))
+	decodeBody, err := Base64DecodeStripped(string(s))
 	if nil != err || !strings.HasPrefix(string(decodeBody), "vmess://") {
 		log.Println(err)
 		c.String(http.StatusBadRequest, "sublink 返回数据格式不对")
@@ -171,8 +178,9 @@ func V2ray2Clash(c *gin.Context) {
 		}
 		s := scanner.Text()[8:]
 		s = strings.Trim(s, `\n`)
-		vmconfig, err := base64.RawStdEncoding.DecodeString(s)
-		if nil != err {
+		s = strings.Trim(s, `\r`)
+		vmconfig, err := Base64DecodeStripped(s)
+		if err != nil {
 			continue
 		}
 		vmess := Vmess{}
