@@ -1,4 +1,4 @@
-package apis
+package api
 
 import (
 	"bufio"
@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 
@@ -44,6 +45,19 @@ type ClashVmess struct {
 	SkipCertVerify bool        `json:"-"`
 }
 
+type ClashRSSR struct {
+	Name          string      `json:"name,omitempty"`
+	Type          string      `json:"type,omitempty"`
+	Server        string      `json:"server,omitempty"`
+	Port          interface{} `json:"port,omitempty"`
+	Password      string      `json:"password,omitempty"`
+	Cipher        string      `json:"cipher,omitempty"`
+	Protocol      string      `json:"protocol,omitempty"`
+	ProtocolParam string      `json:"protocolparam,omitempty"`
+	OBFS          string      `json:"obfs,omitempty"`
+	OBFSParam     string      `json:"obfsparam,omitempty"`
+}
+
 type Clash struct {
 	Port      int `yaml:"port"`
 	SocksPort int `yaml:"socks-port"`
@@ -63,7 +77,7 @@ type Clash struct {
 	CFWLatencyTimeout int                      `yaml:"cfw-latency-timeout"`
 }
 
-func (this *Clash) LoadTemplate(path string, vmesss []Vmess) []byte {
+func (this *Clash) LoadTemplate(path string, protos []interface{}) []byte {
 	_, err := os.Stat(path)
 	if err != nil && os.IsNotExist(err) {
 		log.Printf("[%s] template doesn't exist.", path)
@@ -83,39 +97,30 @@ func (this *Clash) LoadTemplate(path string, vmesss []Vmess) []byte {
 
 	var proxys []map[string]interface{}
 	var proxies []string
-	for _, c := range vmesss {
-		clashVmess := ClashVmess{}
-		clashVmess.Name = c.PS
-		clashVmess.Type = "vmess"
-		clashVmess.Server = c.Add
-		switch c.Port.(type) {
-		case string:
-			clashVmess.Port, _ = c.Port.(string)
-		case int:
-			clashVmess.Port, _ = c.Port.(int)
-		case float64:
-			clashVmess.Port, _ = c.Port.(float64)
-		default:
-			continue
+
+	switch protos[0].(type) {
+	case ClashRSSR:
+		for _, proto := range protos {
+			c := proto.(ClashRSSR)
+			proxy := make(map[string]interface{})
+			j, _ := json.Marshal(proto)
+			json.Unmarshal(j, &proxy)
+			proxys = append(proxys, proxy)
+			this.Proxy = append(this.Proxy, proxy)
+			proxies = append(proxies, c.Name)
 		}
-		clashVmess.UUID = c.ID
-		clashVmess.AlterID = c.Aid
-		clashVmess.Cipher = "auto"
-		if "" != c.TLS {
-			clashVmess.TLS = true
-		} else {
-			clashVmess.TLS = false
+		break
+	case ClashVmess:
+		for _, proto := range protos {
+			c := proto.(ClashVmess)
+			proxy := make(map[string]interface{})
+			j, _ := json.Marshal(proto)
+			json.Unmarshal(j, &proxy)
+			proxys = append(proxys, proxy)
+			this.Proxy = append(this.Proxy, proxy)
+			proxies = append(proxies, c.Name)
 		}
-		if "ws" == c.Net {
-			clashVmess.Network = c.Net
-			clashVmess.WSPATH = c.Path
-		}
-		proxy := make(map[string]interface{})
-		j, _ := json.Marshal(clashVmess)
-		json.Unmarshal(j, &proxy)
-		proxys = append(proxys, proxy)
-		this.Proxy = append(this.Proxy, proxy)
-		proxies = append(proxies, c.PS)
+		break
 	}
 
 	this.Proxy = proxys
@@ -156,6 +161,9 @@ func Base64DecodeStripped(s string) ([]byte, error) {
 		s += strings.Repeat("=", 4-i)
 	}
 	decoded, err := base64.StdEncoding.DecodeString(s)
+	if err != nil {
+		decoded, err = base64.URLEncoding.DecodeString(s)
+	}
 	return decoded, err
 }
 
@@ -185,7 +193,7 @@ func V2ray2Clash(c *gin.Context) {
 		return
 	}
 	scanner := bufio.NewScanner(strings.NewReader(string(decodeBody)))
-	var vmesss []Vmess
+	var vmesss []interface{}
 	for scanner.Scan() {
 		if !strings.HasPrefix(scanner.Text(), "vmess://") {
 			continue
@@ -203,15 +211,145 @@ func V2ray2Clash(c *gin.Context) {
 			log.Fatalln(err)
 			continue
 		}
-		vmesss = append(vmesss, vmess)
+		clashVmess := ClashVmess{}
+		clashVmess.Name = vmess.PS
+		clashVmess.Type = "vmess"
+		clashVmess.Server = vmess.Add
+		switch vmess.Port.(type) {
+		case string:
+			clashVmess.Port, _ = vmess.Port.(string)
+		case int:
+			clashVmess.Port, _ = vmess.Port.(int)
+		case float64:
+			clashVmess.Port, _ = vmess.Port.(float64)
+		default:
+			continue
+		}
+		clashVmess.UUID = vmess.ID
+		clashVmess.AlterID = vmess.Aid
+		clashVmess.Cipher = "auto"
+		if "" != vmess.TLS {
+			clashVmess.TLS = true
+		} else {
+			clashVmess.TLS = false
+		}
+		if "ws" == vmess.Net {
+			clashVmess.Network = vmess.Net
+			clashVmess.WSPATH = vmess.Path
+		}
+
+		vmesss = append(vmesss, clashVmess)
 	}
 	clash := Clash{}
 	r := clash.LoadTemplate("ConnersHua.yaml", vmesss)
 	if r == nil {
 		c.String(http.StatusBadRequest, "sublink 返回数据格式不对")
-	} else {
-		c.String(http.StatusOK, string(r))
+		return
 	}
-	return
+	c.String(http.StatusOK, string(r))
+}
 
+const (
+	SSRServer = iota
+	SSRPort
+	SSRProtocol
+	SSRCipher
+	SSROBFS
+	SSRSuffix
+)
+
+func SSR2ClashR(c *gin.Context) {
+	sublink := c.DefaultQuery("sub_link", "")
+
+	if !strings.HasPrefix(sublink, "http") {
+		c.String(http.StatusBadRequest, "sub_link=需要SSR的订阅链接.")
+		return
+	}
+	resp, err := http.Get(sublink)
+
+	if nil != err {
+		c.String(http.StatusBadRequest, "sublink 不能访问")
+		return
+	}
+	defer resp.Body.Close()
+	s, err := ioutil.ReadAll(resp.Body)
+	if nil != err || resp.StatusCode != http.StatusOK {
+		c.String(http.StatusBadRequest, "sublink 不能访问")
+		return
+	}
+	decodeBody, err := Base64DecodeStripped(string(s))
+	if nil != err || !strings.HasPrefix(string(decodeBody), "ssr://") {
+		log.Println(err)
+		c.String(http.StatusBadRequest, "sublink 返回数据格式不对")
+		return
+	}
+	scanner := bufio.NewScanner(strings.NewReader(string(decodeBody)))
+	var ssrs []interface{}
+	for scanner.Scan() {
+		if !strings.HasPrefix(scanner.Text(), "ssr://") {
+			continue
+		}
+		s := scanner.Text()[6:]
+		s = strings.Trim(s, `\n`)
+		s = strings.Trim(s, `\r`)
+		rawSSRConfig, err := Base64DecodeStripped(s)
+		if err != nil {
+			continue
+		}
+		params := strings.Split(string(rawSSRConfig), `:`)
+		if 6 != len(params) {
+			continue
+		}
+		ssr := ClashRSSR{}
+		ssr.Type = "ssr"
+		ssr.Server = params[SSRServer]
+		ssr.Port = params[SSRPort]
+		ssr.Protocol = params[SSRProtocol]
+		ssr.Cipher = params[SSRCipher]
+		ssr.OBFS = params[SSROBFS]
+
+		suffix := strings.Split(params[SSRSuffix], "/?")
+		if 2 != len(suffix) {
+			continue
+		}
+		passwordBase64 := suffix[0]
+		password, err := Base64DecodeStripped(passwordBase64)
+		if err != nil {
+			continue
+		}
+		ssr.Password = string(password)
+
+		m, err := url.ParseQuery(suffix[1])
+		if err != nil {
+			continue
+		}
+		for k, v := range m {
+			de, err := Base64DecodeStripped(v[0])
+			if err != nil {
+				continue
+			}
+			switch k {
+			case "obfsparam":
+				ssr.OBFSParam = string(de)
+				continue
+			case "protoparam":
+				ssr.ProtocolParam = string(de)
+				continue
+			case "remarks":
+				ssr.Name = string(de)
+				continue
+			case "group":
+				continue
+			}
+		}
+
+		ssrs = append(ssrs, ssr)
+	}
+	clash := Clash{}
+	r := clash.LoadTemplate("ConnersHua.yaml", ssrs)
+	if r == nil {
+		c.String(http.StatusBadRequest, "sublink 返回数据格式不对")
+		return
+	}
+	c.String(http.StatusOK, string(r))
 }
