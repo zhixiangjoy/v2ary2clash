@@ -168,12 +168,12 @@ func Base64DecodeStripped(s string) ([]byte, error) {
 }
 
 func V2ray2Clash(c *gin.Context) {
-	sublink := c.DefaultQuery("sub_link", "")
-
-	if !strings.HasPrefix(sublink, "http") {
-		c.String(http.StatusBadRequest, "sub_link=需要v2ray的订阅链接.")
+	rawURI := c.Request.URL.RawQuery
+	if !strings.HasPrefix(rawURI, "sub_link=http") {
+		c.String(http.StatusBadRequest, "sub_link=需要V2ray的订阅链接.")
 		return
 	}
+	sublink := rawURI[9:]
 	resp, err := http.Get(sublink)
 
 	if nil != err {
@@ -259,12 +259,12 @@ const (
 )
 
 func SSR2ClashR(c *gin.Context) {
-	sublink := c.DefaultQuery("sub_link", "")
-
-	if !strings.HasPrefix(sublink, "http") {
+	rawURI := c.Request.URL.RawQuery
+	if !strings.HasPrefix(rawURI, "sub_link=http") {
 		c.String(http.StatusBadRequest, "sub_link=需要SSR的订阅链接.")
 		return
 	}
+	sublink := rawURI[9:]
 	resp, err := http.Get(sublink)
 
 	if nil != err {
