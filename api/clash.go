@@ -46,16 +46,16 @@ type ClashVmess struct {
 }
 
 type ClashRSSR struct {
-	Name          string      `json:"name,omitempty"`
-	Type          string      `json:"type,omitempty"`
-	Server        string      `json:"server,omitempty"`
-	Port          interface{} `json:"port,omitempty"`
-	Password      string      `json:"password,omitempty"`
-	Cipher        string      `json:"cipher,omitempty"`
-	Protocol      string      `json:"protocol,omitempty"`
-	ProtocolParam string      `json:"protocolparam,omitempty"`
-	OBFS          string      `json:"obfs,omitempty"`
-	OBFSParam     string      `json:"obfsparam,omitempty"`
+	Name          string      `json:"name"`
+	Type          string      `json:"type"`
+	Server        string      `json:"server"`
+	Port          interface{} `json:"port"`
+	Password      string      `json:"password"`
+	Cipher        string      `json:"cipher"`
+	Protocol      string      `json:"protocol"`
+	ProtocolParam string      `json:"protocolparam"`
+	OBFS          string      `json:"obfs"`
+	OBFSParam     string      `json:"obfsparam"`
 }
 
 type Clash struct {
