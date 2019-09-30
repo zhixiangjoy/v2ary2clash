@@ -1,6 +1,6 @@
 NAME=clashconfig
 BINDIR=bin
-VERSION=1.0
+VERSION=1.0.2
 BUILDTIME=$(shell date -u)
 GOBUILD=CGO_ENABLED=0 go build -ldflags '-w -s'
 

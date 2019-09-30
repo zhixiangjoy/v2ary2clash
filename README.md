@@ -4,11 +4,11 @@
 ## 使用方法
 #### 主程序:
 * macOS:    clashconfig-darwin-amd64
-* windows:  clashconfig-windows-amd64.exe
+* windows:  clashconfig-windows-amd64
 * Linux 64: clashconfig-linux-amd64
 * 树莓派:    clashconfig-linux-armv7
 #### 使用方法:
-1. 下载运行主程序，主程序默认监听 0.0.0.0:5050
+1. 下载解压对应系统的主程序运行，主程序默认会监听 0.0.0.0:5050
 2. 使用下面格式设置clash订阅链接, 也可以直接用浏览器访问，下载配置文件手动设置
 ##### v2ary转clash
 ```
